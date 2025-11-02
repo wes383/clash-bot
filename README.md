@@ -5,18 +5,21 @@
 ## 安装
 
 1.  **克隆项目**
+
     ```bash
     git clone https://github.com/wes383/clash-bot.git
     cd clash-bot
     ```
 
 2.  **安装依赖**
+
     确保已安装 Python 3.x，然后运行以下命令安装所需的库：
     ```bash
     pip install -r requirements.txt
     ```
 
 3.  **安装 Tesseract OCR**
+
     此项目需要 Tesseract OCR。请从 [Tesseract](https://tesseract-ocr.github.io/tessdoc/Installation.html) 下载并安装。
 
     安装后，请确保将 Tesseract 的安装路径正确配置在 `clash_bot.py` 文件中：
@@ -26,6 +29,7 @@
     ```
 
 4.  **配置和启用 ADB**
+
     推荐使用安卓模拟器，将分辨率改为纵向 1440*2560，并打开 ADB 调试。
     
     本测试使用的模拟器为 [MuMuPlayer](https://www.mumuplayer.com/)。
@@ -33,13 +37,15 @@
 ## 使用方法
 
 1.  **连接设备**
+
     确保安卓设备已通过 ADB 连接并被正确识别。可以通过以下命令检查：
     ```bash
     adb devices
     ```
 
 2.  **运行脚本**
-    直接运行 `clash_bot.py` 脚本即可开始：
+
+    运行 `clash_bot.py`：
     ```bash
     python clash_bot.py
     ```
