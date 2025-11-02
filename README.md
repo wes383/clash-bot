@@ -1,6 +1,6 @@
 # Clash-Bot
 
-本脚本仅用于学习用途，试图通过第三方软件获取不正当优势的游戏账号可能面临永久封禁的处罚。详见 [SUPERCELL SAFE AND FAIR PLAY POLICY](https://supercell.com/en/safe-and-fair-play/)。
+一个十分简单的自动下牌和重复对战脚本。本脚本仅用于学习用途，试图通过第三方软件获取不正当优势的游戏账号可能面临永久封禁的处罚。详见 [SUPERCELL SAFE AND FAIR PLAY POLICY](https://supercell.com/en/safe-and-fair-play/)。
 
 ## 安装
 
