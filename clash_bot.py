@@ -15,7 +15,7 @@ LOOP_INTERVAL = 3
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # 奖杯阈值
-TROPHY_THRESHOLD = 800
+TROPHY_THRESHOLD = 15000
 # 奖杯数字区域矩形 (左上角x, 左上角y, 右下角x, 右下角y)
 TROPHY_CROP_BOX = (600, 530, 780, 590)
 
