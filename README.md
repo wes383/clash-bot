@@ -20,9 +20,9 @@
 
 3.  **安装 Tesseract OCR**
 
-    此项目需要 Tesseract OCR。请从 [Tesseract](https://tesseract-ocr.github.io/tessdoc/Installation.html) 下载并安装。
+    此项目需要 [Tesseract OCR](https://tesseract-ocr.github.io/tessdoc/Installation.html)。
 
-    安装后，请确保将 Tesseract 的安装路径正确配置在 `clash_bot.py` 文件中：
+    请确保将 Tesseract 的安装路径正确配置在 `clash_bot.py` 文件中：
     ```python
     # Tesseract 安装路径
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
