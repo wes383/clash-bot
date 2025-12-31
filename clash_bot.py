@@ -15,9 +15,9 @@ LOOP_INTERVAL = 3
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # 奖杯阈值
-TROPHY_THRESHOLD = 800
+TROPHY_THRESHOLD = 5200
 # 奖杯数字区域矩形 (左上角x, 左上角y, 右下角x, 右下角y)
-TROPHY_CROP_BOX = (600, 530, 780, 590)
+TROPHY_CROP_BOX = (600, 530, 770, 590)
 
 CARD_SLOTS_XY = [(451, 2276), (729, 2276), (1000, 2276), (1235, 2276)]
 DEPLOY_POINT_XY = (1300, 1873)
@@ -35,11 +35,11 @@ def connect_device():
         client = AdbClient(host="127.0.0.1", port=5037)
         devices = client.devices()
         if not devices: return None
-        device = devices[0];
-        logging.info(f"成功连接到设备: {device.serial}");
+        device = devices[0]
+        logging.info(f"成功连接到设备: {device.serial}")
         return device
     except Exception as e:
-        logging.error(f"连接ADB服务时发生错误: {e}");
+        logging.error(f"连接ADB服务时发生错误: {e}")
         return None
 
 
@@ -62,7 +62,6 @@ def find_image(screen, template_path, threshold=0.9):
 def tap(device, x, y):
     device.shell(f"input tap {x} {y}")
 
-
 def is_elixir_sufficient(screen, check_coords, expected_bgr, tolerance=50):
     try:
         b, g, r = screen[check_coords[1], check_coords[0]]
@@ -72,29 +71,39 @@ def is_elixir_sufficient(screen, check_coords, expected_bgr, tolerance=50):
     except IndexError:
         return False
 
-
 def read_trophies(screen, crop_box):
-    """从屏幕截图中读取奖杯数"""
     try:
         x1, y1, x2, y2 = crop_box
         trophy_img = screen[y1:y2, x1:x2]
 
-        gray_img = cv2.cvtColor(trophy_img, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(trophy_img, cv2.COLOR_BGR2GRAY)
+        gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
-        _, binary_img = cv2.threshold(gray_img, 190, 255, cv2.THRESH_BINARY)
+        _, binary = cv2.threshold(
+            gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
 
-        pil_img = Image.fromarray(binary_img)
+        pil_img = Image.fromarray(binary)
 
         config = '--psm 7 -c tessedit_char_whitelist=0123456789'
         text = pytesseract.image_to_string(pil_img, config=config)
 
-        trophy_count = int(text.strip())
+        text = text.strip()
+        import re
+        digits = re.findall(r'\d+', text)
+
+        if not digits:
+            logging.error(f"OCR 未识别到数字，原始结果: '{text}'")
+            return None
+
+        trophy_count = int(digits[0])
         logging.info(f"成功识别奖杯数: {trophy_count}")
         return trophy_count
+
     except Exception as e:
         logging.error(f"读取奖杯数失败: {e}")
         return None
-
 
 def play_game(device, should_play_cards=True):
     """对战逻辑"""
@@ -121,9 +130,9 @@ def play_game(device, should_play_cards=True):
             if is_elixir_sufficient(screen, ELIXIR_CHECK_XY, EXPECTED_ELIXIR_COLOR_BGR):
                 logging.info("圣水已满，开始连续下牌...")
                 for card_xy in CARD_SLOTS_XY:
-                    tap(device, card_xy[0], card_xy[1]);
+                    tap(device, card_xy[0], card_xy[1])
                     time.sleep(0.2)
-                    tap(device, DEPLOY_POINT_XY[0], DEPLOY_POINT_XY[1]);
+                    tap(device, DEPLOY_POINT_XY[0], DEPLOY_POINT_XY[1])
                     time.sleep(2)
                 time.sleep(2)
             else:
@@ -144,7 +153,7 @@ def wait_for_match_and_play(device, play_cards_this_round):
         if screen is not None:
             is_in_battle, _ = find_image(screen, TEMPLATE_ELIXIR_ANCHOR)
             if is_in_battle:
-                match_started = True;
+                match_started = True
                 break
         time.sleep(1)
     if match_started:
@@ -155,43 +164,64 @@ def wait_for_match_and_play(device, play_cards_this_round):
 
 def main():
     device = connect_device()
-    if not device: time.sleep(10); return
+    if not device:
+        time.sleep(10)
+        return
 
     logging.info("已启动")
+
+    unknown_state_counter = 0
+    FALLBACK_CLICK_THRESHOLD = 2
+
     while True:
         screen = take_screenshot(device)
-        if screen is None: time.sleep(LOOP_INTERVAL); continue
+        if screen is None:
+            time.sleep(LOOP_INTERVAL)
+            continue
 
+        # --- 处理“确定”按钮 ---
         found_ok, loc = find_image(screen, TEMPLATE_OK_BUTTON)
         if found_ok:
-            template = cv2.imread(TEMPLATE_OK_BUTTON);
+            unknown_state_counter = 0
+            template = cv2.imread(TEMPLATE_OK_BUTTON)
             h, w, _ = template.shape
             tap(device, loc[0] + w // 2, loc[1] + h // 2)
             logging.info("点击'确定'，返回主界面...")
-            time.sleep(5);
+            time.sleep(8)
             continue
 
+        # --- 处理“对战”按钮 ---
         found_battle, loc = find_image(screen, TEMPLATE_BATTLE_BUTTON)
         if found_battle:
-            trophies = read_trophies(screen, TROPHY_CROP_BOX)
-            should_play = True  # 默认下牌
-            if trophies is not None:  # 如果成功读到数字
-                if trophies > TROPHY_THRESHOLD:
-                    logging.warning(f"当前奖杯 {trophies} > {TROPHY_THRESHOLD}，下一局将不下牌。")
-                    should_play = False
-                else:
-                    logging.info(f"当前奖杯 {trophies} <= {TROPHY_THRESHOLD}，下一局将正常下牌。")
+            time.sleep(3)
+            unknown_state_counter = 0
 
-            template = cv2.imread(TEMPLATE_BATTLE_BUTTON);
+            trophies = read_trophies(screen, TROPHY_CROP_BOX)
+            should_play = True
+            if trophies is not None and trophies > TROPHY_THRESHOLD:
+                logging.warning(f"当前奖杯 {trophies} > {TROPHY_THRESHOLD}，下一局将不下牌。")
+                should_play = False
+
+            template = cv2.imread(TEMPLATE_BATTLE_BUTTON)
             h, w, _ = template.shape
             tap(device, loc[0] + w // 2, loc[1] + h // 2)
             logging.info("在主界面点击'对战'...")
-
             wait_for_match_and_play(device, play_cards_this_round=should_play)
             continue
 
-        logging.info("未找到'确定'或'对战'按钮，3秒后重试...")
+        # --- 处理未知界面 ---
+        unknown_state_counter += 1
+        logging.warning(
+            f"未找到可识别目标，等待3秒... (连续未知状态: {unknown_state_counter}/{FALLBACK_CLICK_THRESHOLD})")
         time.sleep(LOOP_INTERVAL)
+
+        if unknown_state_counter >= FALLBACK_CLICK_THRESHOLD:
+            logging.error(f"已连续 {unknown_state_counter} 次处于未知状态，尝试执行盲点回退操作！")
+            fallback_x, fallback_y = (725, 2470)
+            tap(device, fallback_x, fallback_y)
+            logging.info(f"已点击回退坐标 ({fallback_x}, {fallback_y})，等待3秒让界面刷新...")
+            unknown_state_counter = 0
+            time.sleep(3)
 
 
 if __name__ == "__main__":
